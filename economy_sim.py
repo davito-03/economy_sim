@@ -1,6 +1,5 @@
 import random
 import json
-import matplotlib.pyplot as plt
 
 # Recursos y precios iniciales
 recursos = {
@@ -16,10 +15,12 @@ dinero = 100  # Créditos iniciales
 inventario = {recurso: 0 for recurso in recursos}
 
 roles = {
-    "comerciante": {"descuento": 0.9},
-    "hacker": {"riesgo": 0.3},
+    "comerciante": {"descuento": 0.2},  # 20% de descuento para el comerciante
+    "hacker": {"riesgo": 0.5},  # 50% de probabilidad de éxito para hackear
     "ciudadano": {"neutral": True},
 }
+
+rol = None  # El rol será asignado después de la selección
 
 # Guardar y cargar estado del juego
 def guardar_estado():
@@ -46,19 +47,7 @@ def cargar_estado():
     except FileNotFoundError:
         print("\nNo se encontró un estado guardado. Comenzando un nuevo juego.")
 
-print("Elige tu rol:")
-print("1. Comerciante (compra más barato)")
-print("2. Hacker (puede manipular precios con riesgo)")
-print("3. Ciudadano (sin ventajas ni desventajas)")
-opcion_rol = input("Selecciona 1, 2 o 3: ")
-if opcion_rol == "1":
-    rol = "comerciante"
-elif opcion_rol == "2":
-    rol = "hacker"
-else:
-    rol = "ciudadano"
-
-# Mostrar estado del mercado
+# Mostrar estado del mercado en la terminal
 def mostrar_estado():
     print("\n=== Estado del Mercado ===")
     for recurso, datos in recursos.items():
@@ -66,7 +55,7 @@ def mostrar_estado():
     print(f"Dinero disponible: {dinero} créditos")
     print(f"Inventario: {inventario}")
 
-# Generar un evento aleatorio
+# Generar un evento aleatorio (solo después de compra o venta)
 def evento_mercado_avanzado():
     eventos = [
         {"nombre": "Descubrimiento de energía renovable", "impactos": {"energía": -3, "tecnología": 5}},
@@ -81,104 +70,161 @@ def evento_mercado_avanzado():
     for recurso, cambio in evento["impactos"].items():
         recursos[recurso]["precio"] = max(1, recursos[recurso]["precio"] + cambio)
 
+# Probabilidad de evento
 def probabilidad_evento():
     if random.random() <= 0.25:  # 25% de probabilidad
         evento_mercado_avanzado()  # Llamamos a la función del evento aleatorio
 
+# Hackear precios (solo para el rol hacker)
+def hackear_precio(recurso):
+    global dinero
+    if rol == "hacker":
+        if dinero >= 2:  # Costo de 2 créditos para hackear
+            exito = random.random() <= 0.5  # 50% de probabilidad de éxito
+            if exito:
+                cambio = random.randint(-5, 5)  # Cambiar el precio en un rango aleatorio entre -5 y 5
+                recursos[recurso]["precio"] = max(1, recursos[recurso]["precio"] + cambio)  # El precio no puede ser menor que 1
+                dinero -= 2  # Restamos 2 créditos por el hackeo
+                print(f"¡Has hackeado el precio de {recurso} exitosamente! El precio cambió en {cambio} créditos.")
+            else:
+                dinero -= 2  # Restamos los 2 créditos aunque falle el hackeo
+                print(f"El intento de hackeo de {recurso} falló. Has perdido 2 créditos.")
+        else:
+            print("No tienes suficiente dinero para hackear.")
+    else:
+        print("Solo los hackers pueden hackear precios.")
+
+# Regatear precio (solo para el rol comerciante)
+def regatear_precio(recurso):
+    global dinero
+    if rol == "comerciante":
+        if dinero >= 2:  # Costo de 2 créditos para regatear
+            exito = random.random() <= 0.6  # 60% de probabilidad de éxito
+            if exito:
+                descuento = random.uniform(0.1, 0.3)  # Descuento entre 10% y 30%
+                nuevo_precio = recursos[recurso]["precio"] * (1 - descuento)
+                recursos[recurso]["precio"] = max(1, nuevo_precio)  # El precio no puede ser menor que 1
+                dinero -= 2  # Restamos los 2 créditos por el regateo
+                print(f"¡Has regateado exitosamente el precio de {recurso}! Nuevo precio: {nuevo_precio:.2f} créditos.")
+            else:
+                dinero -= 2  # Restamos los 2 créditos aunque falle el regateo
+                print(f"El intento de regateo de {recurso} falló. Has perdido 2 créditos.")
+        else:
+            print("No tienes suficiente dinero para regatear.")
+    else:
+        print("Solo los comerciantes pueden regatear precios.")
 
 # Comprar un recurso
-def comprar(recurso, cantidad):
+def comprar():
     global dinero
-    costo_unitario = recursos[recurso]["precio"]
-    if rol == "comerciante":
-        costo_unitario *= roles[rol]["descuento"]
-    costo = costo_unitario * cantidad
-
-    if dinero >= costo and recursos[recurso]["stock"] >= cantidad:
-        dinero -= costo
-        inventario[recurso] += cantidad
-        recursos[recurso]["stock"] -= cantidad
-        print(f"\nHas comprado {cantidad} unidades de {recurso} por {costo:.2f} créditos.")
-        probabilidad_evento()
-    else:
-        print("\nNo tienes suficiente dinero o no hay suficiente stock para comprar eso.")
-
-# Vender un recurso
-def vender(recurso, cantidad):
-    global dinero
-    if inventario[recurso] >= cantidad:
-        ganancia = recursos[recurso]["precio"] * cantidad
-        dinero += ganancia
-        inventario[recurso] -= cantidad
-        recursos[recurso]["stock"] += cantidad
-        print(f"\nHas vendido {cantidad} unidades de {recurso} por {ganancia} créditos.")
-        probabilidad_evento()
-    else:
-        print("\nNo tienes suficiente cantidad para vender.")
-
-# Hackear precios (solo para hackers)
-def hackear():
-    if rol != "hacker":
-        print("\nSolo los hackers pueden intentar manipular los precios.")
-        return
-
-    recurso = input("¿Qué recurso quieres hackear? (energía/comida/agua/tecnología): ").lower()
+    mostrar_estado()
+    recurso = input("\nSelecciona un recurso para comprar (energía, comida, agua, tecnología): ").lower()
+    cantidad = int(input("Cantidad a comprar: "))
+    
     if recurso in recursos:
-        exito = random.random() > roles[rol]["riesgo"]
-        if exito:
-            cambio = random.randint(-10, 10)
-            recursos[recurso]["precio"] = max(1, recursos[recurso]["precio"] + cambio)
-            print(f"\n¡Hackeo exitoso! El precio de {recurso} cambió en {cambio} créditos.")
+        costo_unitario = recursos[recurso]["precio"]
+        if rol == "comerciante":
+            costo_unitario = regatear_precio(recurso)  # Intentamos regatear el precio
+        costo = costo_unitario * cantidad
+        if dinero >= costo and recursos[recurso]["stock"] >= cantidad:
+            dinero -= costo
+            inventario[recurso] += cantidad
+            recursos[recurso]["stock"] -= cantidad
+            probabilidad_evento()
+            print(f"Has comprado {cantidad} unidades de {recurso} por {costo:.2f} créditos.")
+            verificar_game_over()  # Verificar si se llega a 0 créditos
         else:
-            print("\nEl hackeo falló y perdiste 10 créditos.")
-            global dinero
-            dinero = max(0, dinero - 10)
+            print("No tienes suficiente dinero o no hay suficiente stock.")
     else:
         print("Recurso no válido.")
 
-# Graficar precios
-def graficar_precios():
-    for recurso in recursos:
-        historico_precios[recurso].append(recursos[recurso]["precio"])
-
-    plt.figure(figsize=(10, 5))
-    for recurso, precios in historico_precios.items():
-        plt.plot(precios, label=recurso)
-    plt.legend()
-    plt.title("Fluctuaciones de precios en el mercado")
-    plt.xlabel("Turnos")
-    plt.ylabel("Precio")
-    plt.show()
-
-# Simulación
-cargar_estado()
-while True:
+# Vender un recurso
+def vender():
+    global dinero
     mostrar_estado()
-    accion = input("\n¿Qué quieres hacer? (comprar/vender/evento/hackear/graficar/guardar/salir): ").lower()
-    if accion == "salir":
-        print("¡Gracias por jugar!")
-        break
-    elif accion == "evento":
-        evento_mercado_avanzado()
-    elif accion == "comprar":
-        recurso = input("¿Qué recurso? (energía/comida/agua/tecnología): ").lower()
-        if recurso in recursos:
-            cantidad = int(input("¿Cuántas unidades?: "))
-            comprar(recurso, cantidad)
+    recurso = input("\nSelecciona un recurso para vender (energía, comida, agua, tecnología): ").lower()
+    cantidad = int(input("Cantidad a vender: "))
+    
+    if recurso in recursos:
+        if inventario[recurso] >= cantidad:
+            precio_unitario = recursos[recurso]["precio"]
+            if rol == "comerciante":
+                precio_unitario = regatear_precio(recurso)  # Intentamos regatear el precio
+            ganancia = precio_unitario * cantidad
+            dinero += ganancia
+            inventario[recurso] -= cantidad
+            recursos[recurso]["stock"] += cantidad
+            probabilidad_evento()
+            print(f"Has vendido {cantidad} unidades de {recurso} por {ganancia} créditos.")
+            verificar_game_over()  # Verificar si se llega a 0 créditos
         else:
-            print("Recurso no válido.")
-    elif accion == "vender":
-        recurso = input("¿Qué recurso? (energía/comida/agua/tecnología): ").lower()
-        if recurso in recursos:
-            cantidad = int(input("¿Cuántas unidades?: "))
-            vender(recurso, cantidad)
-        else:
-            print("Recurso no válido.")
-    elif accion == "hackear":
-        hackear()
-    elif accion == "graficar":
-        graficar_precios()
-    elif accion == "guardar":
-        guardar_estado()
+            print("No tienes suficiente cantidad para vender.")
     else:
-        print("Acción no válida.")
+        print("Recurso no válido.")
+
+# Verificar si el jugador ha perdido
+def verificar_game_over():
+    if dinero <= 0:
+        print("¡Has quedado sin dinero! El juego ha terminado.")
+        exit()
+
+# Función para cambiar el rol seleccionado
+def cambiar_rol():
+    global rol
+    print("\nSelecciona tu rol:")
+    print("1. Comerciante")
+    print("2. Hacker")
+    print("3. Ciudadano")
+    opcion = input("Opción: ")
+
+    if opcion == "1":
+        rol = "comerciante"
+    elif opcion == "2":
+        rol = "hacker"
+    elif opcion == "3":
+        rol = "ciudadano"
+    else:
+        print("Rol no válido. Elige nuevamente.")
+        cambiar_rol()
+
+# Menú principal del juego
+def menu():
+    global rol
+    cambiar_rol()
+    while True:
+        print("\n=== Menú ===")
+        print("1. Mostrar Estado del Mercado")
+        print("2. Comprar")
+        print("3. Vender")
+        print("4. Hackear Precio (solo para hacker)")
+        print("5. Regatear Precio (solo para comerciante)")
+        print("6. Guardar Estado")
+        print("7. Cargar Estado")
+        print("8. Salir")
+
+        opcion = input("Elige una opción: ")
+
+        if opcion == "1":
+            mostrar_estado()
+        elif opcion == "2":
+            comprar()
+        elif opcion == "3":
+            vender()
+        elif opcion == "4" and rol == "hacker":
+            recurso = input("¿Qué recurso quieres hackear? ")
+            hackear_precio(recurso)
+        elif opcion == "5" and rol == "comerciante":
+            recurso = input("¿Qué recurso quieres regatear? ")
+            regatear_precio(recurso)
+        elif opcion == "6":
+            guardar_estado()
+        elif opcion == "7":
+            cargar_estado()
+        elif opcion == "8":
+            print("Gracias por jugar. ¡Hasta pronto!")
+            break
+        else:
+            print("Opción no válida.")
+
+# Iniciar el juego
+menu()
