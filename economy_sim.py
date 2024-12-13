@@ -81,6 +81,11 @@ def evento_mercado_avanzado():
     for recurso, cambio in evento["impactos"].items():
         recursos[recurso]["precio"] = max(1, recursos[recurso]["precio"] + cambio)
 
+def probabilidad_evento():
+    if random.random() <= 0.25:  # 25% de probabilidad
+        evento_mercado_avanzado()  # Llamamos a la función del evento aleatorio
+
+
 # Comprar un recurso
 def comprar(recurso, cantidad):
     global dinero
@@ -94,6 +99,7 @@ def comprar(recurso, cantidad):
         inventario[recurso] += cantidad
         recursos[recurso]["stock"] -= cantidad
         print(f"\nHas comprado {cantidad} unidades de {recurso} por {costo:.2f} créditos.")
+        probabilidad_evento()
     else:
         print("\nNo tienes suficiente dinero o no hay suficiente stock para comprar eso.")
 
@@ -106,6 +112,7 @@ def vender(recurso, cantidad):
         inventario[recurso] -= cantidad
         recursos[recurso]["stock"] += cantidad
         print(f"\nHas vendido {cantidad} unidades de {recurso} por {ganancia} créditos.")
+        probabilidad_evento()
     else:
         print("\nNo tienes suficiente cantidad para vender.")
 
