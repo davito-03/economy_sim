@@ -80,14 +80,6 @@ Inventario: {'energía': 0, 'comida': 0, 'agua': 0, 'tecnología': 0}
 
 ---
 
-## Futuras Mejoras
-- Implementar un sistema de logros para el jugador.
-- Agregar más eventos al mercado.
-- Soporte para roles adicionales.
-- Mejoras en la interfaz gráfica usando librerías como `Tkinter` o `PyQt`.
-
----
-
 ## Contribuciones
 Las contribuciones son bienvenidas. Si deseas agregar nuevas características o corregir errores, realiza un *fork* del repositorio y envía un *pull request*.
 
